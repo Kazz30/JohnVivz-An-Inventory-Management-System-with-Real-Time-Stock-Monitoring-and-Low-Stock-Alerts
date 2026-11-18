@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/inventory-theme.css">
+  <link rel="stylesheet" href="/print.css">
+  <link rel="icon" type="image/png" href="/johnvivz-logo.png">
+  <meta name="application-name" content="JOHNVIVZ">
+  <meta name="theme-color" content="#062B68">
+  <title>{{ title }} | JOHNVIVZ Inventory</title>
+</head>

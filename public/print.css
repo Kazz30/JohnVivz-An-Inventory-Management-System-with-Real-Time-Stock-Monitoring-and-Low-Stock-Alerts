@@ -1,0 +1,12 @@
+.heading-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.nav-link>i{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex:none;font-style:normal}
+.sidebar-logout i{width:16px;height:16px;display:inline-flex;vertical-align:middle}
+@media print{
+  body,.app-body{background:#fff!important}
+  .sidebar,.topbar,.heading-actions,.filter-form,.form-panel,.actions-cell,.app-footer{display:none!important}
+  .app-shell,.main-panel{display:block;width:100%;margin:0;padding:0}
+  .page-content{max-width:none;padding:0}
+  .panel,.stat-card{box-shadow:none;border:1px solid #d5d9df;break-inside:avoid}
+  table{white-space:normal}
+  th,td{font-size:9pt;padding:6px}
+}

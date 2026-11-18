@@ -1,0 +1,63 @@
+{{> head}}
+<body class="app-body">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/dashboard" aria-label="JOHNVIVZ inventory home"><span class="brand-wordmark">JOHNVIVZ<small>Inventory</small></span></a>
+      <nav class="nav-list">
+        <a class="nav-link active" href="/dashboard"><i data-lucide="layout-dashboard">◫</i> <span>Dashboard</span></a>
+        <a class="nav-link" href="/products"><i data-lucide="package">▦</i> <span>Products</span></a>
+        <a class="nav-link" href="/categories"><i data-lucide="tags">◈</i> <span>Categories</span></a>
+        <a class="nav-link" href="/inventory"><i data-lucide="boxes">▤</i> <span>Inventory</span></a>
+        <a class="nav-link" href="/movements"><i data-lucide="arrow-left-right">↕</i> <span>Stock movements</span></a>
+        <a class="nav-link" href="/suppliers"><i data-lucide="truck">♧</i> <span>Suppliers</span></a>
+        <a class="nav-link" href="/purchase-orders"><i data-lucide="clipboard-list">▣</i> <span>Purchase orders</span></a>
+        <a class="nav-link" href="/alerts"><i data-lucide="triangle-alert">⚑</i> <span>Low-stock alerts</span></a>
+        <a class="nav-link" href="/notifications"><i data-lucide="bell">♢</i> <span>Notifications <b class="nav-count">{{unreadNotificationCount}}</b></span></a>
+        {{#if (canReviewReports currentUser.Role.name)}}
+        <a class="nav-link" href="/reports"><i data-lucide="chart-no-axes-column-increasing">▥</i> <span>Reports</span></a>
+        {{/if}}
+        {{#if (isAdmin currentUser.Role.name)}}
+        <a class="nav-link" href="/users"><i data-lucide="users">♙</i> <span>User management</span></a>
+        {{/if}}
+        <a class="nav-link" href="/profile"><i data-lucide="circle-user-round">◉</i> <span>My profile</span></a>
+      </nav>
+      <form method="post" action="/logout" class="sidebar-logout"><input type="hidden" name="_csrf" value="{{csrfToken}}"><button type="submit"><i data-lucide="log-out">↪</i> Sign out</button></form>
+    </aside>
+    <main class="main-panel">
+      <header class="topbar"><div class="topbar-brand"><img class="topbar-logo" src="/johnvivz-logo.png" alt="JOHNVIVZ"><span><span class="muted">Workspace</span><strong> / Dashboard</strong></span></div><div class="user-chip"><span>{{currentUser.name}}</span><small>{{currentUser.Role.name}}</small></div></header>
+      <section class="page-content">
+        {{#each success_msg}}<div class="notice notice-success">{{this}}</div>{{/each}}
+        {{#each error_msg}}<div class="notice notice-error">{{this}}</div>{{/each}}
+        <div class="page-heading"><div><p class="eyebrow">OVERVIEW</p><h1>{{dashboardHeading}}</h1><p class="muted">{{dashboardSubtitle}}</p></div>{{#if dashboardActionHref}}<a class="button button-primary" href="{{dashboardActionHref}}">{{dashboardActionLabel}}</a>{{/if}}</div>
+        <div class="stats-grid">
+          {{#each stats}}<article class="stat-card tone-{{tone}}"><span>{{label}}</span><strong>{{value}}</strong><small>Current database totals</small></article>{{/each}}
+        </div>
+        <div class="dashboard-grid">
+          <section class="panel chart-panel"><div class="panel-heading"><div><h2>Stock by category</h2><p class="muted">Current on-hand quantity</p></div></div><div class="chart-wrap"><canvas id="category-chart" data-chart="{{categoryChart}}"></canvas></div></section>
+          <section class="panel chart-panel"><div class="panel-heading"><div><h2>Stock movements</h2><p class="muted">Recorded quantity · last 30 days</p></div></div><div class="chart-wrap"><canvas id="movement-chart" data-chart="{{movementChart}}"></canvas></div></section>
+        </div>
+        <div class="dashboard-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Recent stock movements</h2><p class="muted">Latest inventory activity</p></div><a href="/movements">View history →</a></div>
+            <div class="table-wrap"><table><thead><tr><th>Product</th><th>Type</th><th>Quantity</th><th>Recorded by</th><th>Date</th></tr></thead><tbody>
+              {{#each movements}}<tr><td>{{product}}</td><td><span class="status-pill">{{type}}</span></td><td>{{quantity}}</td><td>{{user}}</td><td>{{date}}</td></tr>{{else}}<tr><td colspan="5" class="empty-state">No stock movements have been recorded.</td></tr>{{/each}}
+            </tbody></table></div>
+          </section>
+          <section class="panel"><div class="panel-heading"><div><h2>Unread notifications</h2><p class="muted">Low-stock messages for your account</p></div><a href="/notifications">View all →</a></div>
+            <div class="notification-list">{{#each notifications}}<article class="notification-item"><span class="notification-dot"></span><div><p>{{message}}</p><small>{{date}}</small></div></article>{{else}}<p class="empty-state">You are all caught up.</p>{{/each}}</div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    document.querySelectorAll("canvas[data-chart]").forEach((canvas, index) => {
+      const data = JSON.parse(canvas.getAttribute("data-chart") || "{}");
+      new Chart(canvas, {
+        type: index === 0 ? "doughnut" : "bar",
+        data: { labels: data.labels, datasets: [{ data: data.values, backgroundColor: ["#0756D9", "#00BFFF", "#7654DB", "#16A36A", "#F5A623", "#062B68"], borderWidth: 0, borderRadius: 8 }] },
+        options: { maintainAspectRatio: false, plugins: { legend: { position: index === 0 ? "bottom" : "top" } }, scales: index === 0 ? {} : { y: { beginAtZero: true } } }
+      });
+    });
+  </script>
+{{> footer}}

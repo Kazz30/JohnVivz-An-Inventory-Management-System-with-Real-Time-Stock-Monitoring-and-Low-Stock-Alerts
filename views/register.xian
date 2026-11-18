@@ -1,0 +1,17 @@
+{{> head}}
+<body class="auth-page">
+  <main class="auth-card">
+    <img class="auth-logo" src="/johnvivz-logo.png" alt="JOHNVIVZ Inventory Management">
+    <p class="eyebrow">INITIAL SETUP</p>
+    <h1>Create inventory manager</h1>
+    <p class="muted">This setup page is available only until the first account is created.</p>
+    {{#each error_msg}}<div class="notice notice-error">{{this}}</div>{{/each}}
+    <form method="post" action="/register" class="stack-form">
+      <label>Full name<input type="text" name="name" autocomplete="name" maxlength="120" required></label>
+      <label>Email address<input type="email" name="email" autocomplete="email" required></label>
+      <label>Password <span class="muted">(10–72 UTF-8 bytes)</span><input type="password" name="password" autocomplete="new-password" minlength="10" maxlength="72" required></label>
+      <button class="button button-primary full-width" type="submit">Create account</button>
+    </form>
+    <a class="muted small-link" href="/login">Return to sign in</a>
+  </main>
+{{> footer}}

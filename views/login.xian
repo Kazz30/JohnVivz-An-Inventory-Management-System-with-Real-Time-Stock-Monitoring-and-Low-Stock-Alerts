@@ -1,0 +1,16 @@
+{{> head}}
+<body class="auth-page">
+  <main class="auth-card">
+    <img class="auth-logo" src="/johnvivz-logo.png" alt="JOHNVIVZ Inventory Management">
+    <h1>Welcome back</h1>
+    <p class="muted">Sign in to manage your inventory.</p>
+    {{#if essLive}}<p class="muted">Use your onboarding email and the password you created in ESS (JVzPay).</p>{{/if}}
+    {{#each error_msg}}<div class="notice notice-error">{{this}}</div>{{/each}}
+    <form method="post" action="/login" class="stack-form">
+      <label>Email address<input type="email" name="email" autocomplete="username" required></label>
+      <label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+      <button class="button button-primary full-width" type="submit">Sign in</button>
+    </form>
+    <a class="muted small-link" href="/register">First time here? Set up the inventory manager account</a>
+  </main>
+{{> footer}}
