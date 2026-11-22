@@ -48,6 +48,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
+// Behind Nginx on a server, TRUST_PROXY=1 lets Express see the real client IP and HTTPS status from the proxy's
+// X-Forwarded-* headers. Without it, secure session cookies are never set and every visitor shares one IP
+// (which would also share the login rate limit). Leave it unset when the app is reached directly, e.g. on localhost.
+if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 const cryptoRandomToken = () => randomBytes(32).toString("hex");
 const hbsEngine = hbs.handlebars;

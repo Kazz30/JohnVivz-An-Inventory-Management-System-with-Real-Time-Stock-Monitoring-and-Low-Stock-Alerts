@@ -15,6 +15,7 @@ Configure these settings in the deployment platform's secret store or in a `.env
 | `DB_USER` | Yes | Least-privilege application account |
 | `DB_PASSWORD` | Yes | Never commit or log this value |
 | `SESSION_SECRET` | Yes in production | Long, random secret; production startup fails if absent |
+| `TRUST_PROXY` | Behind a reverse proxy | Set to `1` when Nginx or a load balancer terminates HTTPS, so secure cookies and per-visitor rate limits work. Leave unset on localhost |
 | `HR_API_URL` | For HR sync | e.g. `http://localhost:3001` |
 | `HR_API_TOKEN` | For HR sync | Inventory's API key issued by HR |
 | `INVENTORY_DEPARTMENT_CODE` | For HR sync and ESS sign-in | HR `department_code` of the Inventory department |
