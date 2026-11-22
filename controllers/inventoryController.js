@@ -8,6 +8,7 @@ import { makeFields, renderModule } from "./viewHelpers.js";
 import { canRecordMovement } from "../services/permissions.js";
 import { formatMoney, parseMoney } from "../services/money.js";
 import { generateSku } from "../services/skuService.js";
+import { deleteProductImage, saveProductImage } from "../services/productImages.js";
 
 const stockStatus = product => product.currentStock <= 0
   ? "Out of stock"
@@ -27,7 +28,7 @@ const productFields = async record => {
     ["unitPrice", "Unit price", "number", true],
     ["minimumStock", "Minimum stock threshold", "number", true],
     ["unit", "Unit of measurement", "text", true],
-    ["imagePath", "Product image URL (optional)", "url"]
+    ["imagePath", "Product image (optional)", "image"]
   ], record || {}).map(field => field.name === "sku"
     ? { ...field, readonly: true, placeholder: "Generated automatically when the product is saved" }
     : field);
@@ -46,6 +47,7 @@ export const productsPage = async (req, res) => {
   if (req.query.status) visible = products.filter(product => stockStatus(product) === req.query.status);
   if (req.query.category) visible = visible.filter(product => String(product.CategoryId) === String(req.query.category));
   const categories = await Category.findAll({ order: [["name", "ASC"]] });
+  const formFields = await productFields();
   renderModule(res, {
     title: "Products",
     subtitle: "Manage the products tracked in your inventory.",
@@ -55,6 +57,8 @@ export const productsPage = async (req, res) => {
       id: product.id,
       href: `/products/${product.id}`,
       canArchive: product.currentStock === 0,
+      thumb: true,
+      image: product.imagePath || "",
       cells: [
         product.name, product.sku, product.Category?.name || "—", product.Supplier?.name || "—",
         Number(product.unitPrice).toFixed(2), `${product.currentStock} ${product.unit}`, stockStatus(product)
@@ -63,10 +67,14 @@ export const productsPage = async (req, res) => {
     showForm: req.user.Role.name === "manager",
     formTitle: "Add product",
     formAction: "/products",
+    multipart: true,
+    formModal: true,
+    formModalLabel: "Add Product",
     skuPreviewUrl: "/products/sku-preview",
     fields: [
-      ...(await productFields()),
-      ...makeFields([["initialStock", "Opening stock", "number", true]])
+      ...formFields.filter(field => field.name !== "imagePath"),
+      ...makeFields([["initialStock", "Opening stock", "number", true]]),
+      ...formFields.filter(field => field.name === "imagePath")
     ],
     filters: [
       { name: "search", label: "Search name or SKU", type: "search", value: search },
@@ -86,14 +94,19 @@ export const createProduct = async (req, res) => {
     throw new Error("Provide a name, non-negative price and threshold, and a valid initial stock quantity.");
   }
   const categoryId = req.body.CategoryId ? Number(req.body.CategoryId) : null;
+  // The optional image is checked and stored only after every other field has been validated.
+  const imagePath = req.file ? await saveProductImage(req.file) : null;
   // The SKU is always generated here; any "sku" in the request body is ignored. Two registrations
   // can pick the same next number at once, so a unique-index collision rolls back and tries again.
   for (let attempt = 1; ; attempt += 1) {
     try {
-      await createProductWithSku({ req, name, categoryId, unitPrice, minimumStock, initialStock });
+      await createProductWithSku({ req, name, categoryId, unitPrice, minimumStock, initialStock, imagePath });
       break;
     } catch (error) {
-      if (!(error instanceof UniqueConstraintError) || attempt >= 10) throw error;
+      if (!(error instanceof UniqueConstraintError) || attempt >= 10) {
+        await deleteProductImage(imagePath);
+        throw error;
+      }
       await new Promise(resolve => setTimeout(resolve, Math.random() * 40 * attempt));
     }
   }
@@ -101,7 +114,7 @@ export const createProduct = async (req, res) => {
   res.redirect("/products");
 };
 
-const createProductWithSku = ({ req, name, categoryId, unitPrice, minimumStock, initialStock }) =>
+const createProductWithSku = ({ req, name, categoryId, unitPrice, minimumStock, initialStock, imagePath }) =>
   sequelize.transaction(async transaction => {
     const sku = await generateSku({ categoryId, productName: name, transaction });
     const product = await Product.create({
@@ -109,7 +122,7 @@ const createProductWithSku = ({ req, name, categoryId, unitPrice, minimumStock, 
       CategoryId: categoryId,
       SupplierId: req.body.SupplierId ? Number(req.body.SupplierId) : null,
       unitPrice, minimumStock, unit: String(req.body.unit || "unit").trim(),
-      imagePath: req.body.imagePath || null, currentStock: 0
+      imagePath, currentStock: 0
     }, { transaction });
     await Inventory.create({ ProductId: product.id, quantity: 0 }, { transaction });
     await emitIntegrationEvent({
@@ -147,6 +160,7 @@ export const editProductPage = async (req, res) => {
     showActions: false,
     formTitle: "Product details",
     formAction: `/products/${product.id}/update`,
+    multipart: true,
     fields: await productFields(product.toJSON())
   });
 };
@@ -167,6 +181,7 @@ export const productDetailsPage = async (req, res) => {
     title: product.name,
     subtitle: `${product.sku} · ${stockStatus(product)} · ${product.currentStock} ${product.unit} on hand`,
     section: "product-details",
+    heroImage: product.imagePath || "",
     columns: ["Date", "Movement", "Quantity", "Before", "After", "Recorded by", "Remarks"],
     rows: movements.map(movement => ({
       cells: [movement.createdAt.toLocaleString(), movement.movementType.replace("_", " "), movement.quantity, movement.previousStock, movement.updatedStock, movement.recordedBy?.name || "CRM integration", movement.remarks || "—"]
@@ -200,33 +215,42 @@ export const updateProduct = async (req, res) => {
     description: req.body.description || null,
     CategoryId: req.body.CategoryId ? Number(req.body.CategoryId) : null,
     SupplierId: req.body.SupplierId ? Number(req.body.SupplierId) : null,
-    unitPrice, minimumStock, unit: String(req.body.unit || "unit").trim(),
-    imagePath: req.body.imagePath || null
+    unitPrice, minimumStock, unit: String(req.body.unit || "unit").trim()
   };
-  await sequelize.transaction(async transaction => {
-    await product.update(updates, { transaction });
-    const payload = {
-      productId: product.id,
-      sku: product.sku,
-      name: product.name,
-      price: formatMoney(product.unitPrice),
-      unit: product.unit
-    };
-    await emitIntegrationEvent({
-      eventType: "ProductUpdated",
-      transactionReference: `product:${product.id}:${product.updatedAt.getTime()}`,
-      payload,
-      transaction
-    });
-    if (previousPrice !== unitPrice) {
+  // Keep the current image unless a new file is chosen or Remove was pressed.
+  const previousImage = product.imagePath;
+  const uploadedImage = req.file ? await saveProductImage(req.file) : null;
+  updates.imagePath = uploadedImage || (req.body.removeImage === "1" ? null : previousImage);
+  try {
+    await sequelize.transaction(async transaction => {
+      await product.update(updates, { transaction });
+      const payload = {
+        productId: product.id,
+        sku: product.sku,
+        name: product.name,
+        price: formatMoney(product.unitPrice),
+        unit: product.unit
+      };
       await emitIntegrationEvent({
-        eventType: "ProductPriceUpdated",
-        transactionReference: `price:${product.id}:${product.updatedAt.getTime()}`,
-        payload: { ...payload, previousPrice, newPrice: formatMoney(product.unitPrice) },
+        eventType: "ProductUpdated",
+        transactionReference: `product:${product.id}:${product.updatedAt.getTime()}`,
+        payload,
         transaction
       });
-    }
-  });
+      if (previousPrice !== unitPrice) {
+        await emitIntegrationEvent({
+          eventType: "ProductPriceUpdated",
+          transactionReference: `price:${product.id}:${product.updatedAt.getTime()}`,
+          payload: { ...payload, previousPrice, newPrice: formatMoney(product.unitPrice) },
+          transaction
+        });
+      }
+    });
+  } catch (error) {
+    await deleteProductImage(uploadedImage);
+    throw error;
+  }
+  if (previousImage && previousImage !== updates.imagePath) await deleteProductImage(previousImage);
   req.flash("success_msg", "Product details updated.");
   res.redirect("/products");
 };

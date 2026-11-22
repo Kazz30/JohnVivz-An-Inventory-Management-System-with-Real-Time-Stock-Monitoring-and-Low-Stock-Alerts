@@ -396,3 +396,62 @@ kbd { display: inline-block; min-width: 24px; padding: 2px 7px; border: 1px soli
   th { position: static; background: #eef2f8 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .empty-state::before { display: none; }
 }
+
+/* ---------- Product image upload + thumbnails ---------- */
+.image-upload { position: relative; display: grid; gap: 8px; }
+.stack-form .image-input { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; opacity: 0; overflow: hidden; clip: rect(0 0 0 0); }
+.image-drop {
+  display: grid; justify-items: center; gap: 4px; padding: 18px 14px;
+  border: 1.5px dashed var(--border-strong); border-radius: var(--radius); background: #fafcff;
+  color: var(--text-soft); text-align: center; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s;
+}
+.image-drop > i { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; color: var(--blue); font-style: normal; font-size: 22px; }
+.image-drop > i svg { width: 28px; height: 28px; }
+.image-drop strong { color: var(--text); font-size: 13px; font-weight: 600; }
+.image-drop small { font-size: 11.5px; font-weight: 400; }
+.image-drop:hover, .image-upload.is-dragging .image-drop { border-color: var(--blue); background: var(--blue-soft); }
+.image-upload:focus-within .image-drop { border-color: var(--blue); box-shadow: var(--focus); }
+.image-preview { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+.image-preview[hidden], .image-drop[hidden], .image-error[hidden] { display: none; }
+.image-upload.is-dragging .image-preview { border-color: var(--blue); background: var(--blue-soft); }
+.image-preview img { width: 72px; height: 72px; flex: none; border: 1px solid var(--border); border-radius: 8px; background: #f1f5fb; object-fit: cover; }
+.image-meta { display: grid; gap: 4px; min-width: 0; }
+.image-name { color: var(--text-soft); font-size: 12px; font-weight: 400; overflow-wrap: anywhere; }
+.image-actions { display: flex; gap: 12px; }
+.image-link { padding: 0; border: 0; background: none; color: var(--blue); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.image-link:hover { text-decoration: underline; }
+.image-link-danger { color: var(--danger); }
+.image-link:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; border-radius: 3px; }
+.image-error { color: var(--danger); font-size: 12px; font-weight: 500; }
+.cell-thumb { display: inline-flex; align-items: center; gap: 10px; }
+.thumb { display: inline-block; width: 36px; height: 36px; flex: none; border: 1px solid var(--border); border-radius: 7px; background: #f1f5fb; object-fit: cover; }
+.product-hero { display: flex; justify-content: center; margin-bottom: 16px; padding: 14px; }
+.product-hero-image { max-width: 100%; max-height: 260px; border-radius: 8px; object-fit: contain; }
+
+/* ---------- Add Product modal + full-width product list ---------- */
+.modal-form { display: flex; flex-direction: column; width: min(760px, 100%); max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); padding: 0; overflow: hidden; }
+.modal-form .modal-head { align-items: flex-start; margin: 0; padding: 18px 22px 14px; border-bottom: 1px solid var(--border); }
+.modal-form .modal-head h2 { font-size: 18px; }
+.modal-form .modal-head p.muted { margin: 2px 0 0; font-size: 12px; }
+.modal-form .stack-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; padding: 18px 22px 0; overflow-y: auto; align-content: start; }
+.modal-form .stack-form > * { min-width: 0; }
+.modal-form .form-section { grid-column: 1 / -1; margin: 6px 0 -4px; padding-bottom: 6px; border-bottom: 1px solid #edf1f7; color: var(--text-soft); font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.modal-form .form-section:first-of-type, .modal-form .form-error + .form-section { margin-top: 0; }
+.modal-form .field-wide, .modal-form .form-error { grid-column: 1 / -1; }
+.modal-form .form-error { margin: 0; }
+.modal-form .form-error[hidden] { display: none; }
+.modal-form .modal-actions { position: sticky; bottom: 0; grid-column: 1 / -1; margin: 6px -22px 0; padding: 14px 22px; background: #fff; border-top: 1px solid var(--border); }
+.module-layout:not(.with-form) { grid-template-columns: minmax(0, 1fr); }
+.filter-form label:first-child { flex: 2 1 220px; }
+@media (max-width: 640px) {
+  .modal-backdrop:has(.modal-form) { padding: 0; align-items: end; }
+  .modal-form { width: 100%; max-height: 94vh; max-height: 94dvh; border-radius: 16px 16px 0 0; }
+  .modal-form .stack-form { grid-template-columns: minmax(0, 1fr); padding: 16px 16px 0; }
+  .modal-form .modal-head { padding: 16px; }
+  .modal-form .modal-actions { margin: 6px -16px 0; padding: 12px 16px; flex-direction: row; }
+  .modal-form .modal-actions .button { flex: 1; width: auto; }
+}
+
+/* Shortcut hint inside the Add button */
+.btn-kbd { margin-left: 8px; min-width: 0; padding: 0 6px; border: 1px solid #ffffff59; border-radius: 5px; background: #ffffff1f; color: #ffffffd9; font: 600 10.5px/16px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; letter-spacing: .03em; text-transform: uppercase; }
+@media (max-width: 800px) { .btn-kbd { display: none; } }

@@ -7,19 +7,20 @@
       <section class="page-content">
         {{#each success_msg}}<div class="notice notice-success">{{this}}</div>{{/each}}
         {{#each error_msg}}<div class="notice notice-error">{{this}}</div>{{/each}}
-        <div class="page-heading"><div><p class="eyebrow">JOHNVIVZ INVENTORY</p><h1>{{title}}</h1>{{#if subtitle}}<p class="muted">{{subtitle}}</p>{{/if}}</div><div class="heading-actions">{{#each actions}}<a class="button button-primary" href="{{href}}">{{label}}</a>{{/each}}{{#each postActions}}<form method="post" action="{{action}}" class="inline-action"><input type="hidden" name="_csrf" value="{{@root.csrfToken}}"><button class="button button-secondary" type="submit">{{label}}</button></form>{{/each}}{{#if printable}}<button class="button button-secondary" type="button" onclick="window.print()">Print report</button>{{/if}}{{#if bulkAction}}<form method="post" action="{{bulkAction}}"><input type="hidden" name="_csrf" value="{{csrfToken}}"><button class="button button-secondary" type="submit">Mark all as read</button></form>{{/if}}</div></div>
+        <div class="page-heading"><div><p class="eyebrow">JOHNVIVZ INVENTORY</p><h1>{{title}}</h1>{{#if subtitle}}<p class="muted">{{subtitle}}</p>{{/if}}</div><div class="heading-actions">{{#if formModal}}{{#if showForm}}<button type="button" class="button button-primary" data-open-form-modal aria-haspopup="dialog" aria-controls="form-modal" aria-keyshortcuts="Alt+N" title="{{formModalLabel}} (Alt + N)">+ {{formModalLabel}}<kbd class="btn-kbd" aria-hidden="true">Alt N</kbd></button>{{/if}}{{/if}}{{#each actions}}<a class="button button-primary" href="{{href}}">{{label}}</a>{{/each}}{{#each postActions}}<form method="post" action="{{action}}" class="inline-action"><input type="hidden" name="_csrf" value="{{@root.csrfToken}}"><button class="button button-secondary" type="submit">{{label}}</button></form>{{/each}}{{#if printable}}<button class="button button-secondary" type="button" onclick="window.print()">Print report</button>{{/if}}{{#if bulkAction}}<form method="post" action="{{bulkAction}}"><input type="hidden" name="_csrf" value="{{csrfToken}}"><button class="button button-secondary" type="submit">Mark all as read</button></form>{{/if}}</div></div>
+        {{#if heroImage}}<section class="panel product-hero"><img class="product-hero-image" src="{{heroImage}}" alt="{{title}}"></section>{{/if}}
         {{#if details}}<section class="panel detail-grid">{{#each details}}<div><span class="muted">{{label}}</span><strong>{{value}}</strong></div>{{/each}}</section>{{/if}}
         {{#each summaryLines}}<p class="summary-line">{{#if href}}<a class="button button-secondary" href="{{href}}">{{label}}</a>{{else}}{{label}}{{#if value}}: {{value}}{{/if}}{{/if}}</p>{{/each}}
         {{#if statusFormAction}}
           {{#if canManage}}<form class="status-form" method="post" action="{{statusFormAction}}"><input type="hidden" name="_csrf" value="{{csrfToken}}"><label for="order-status">Order status</label><select id="order-status" name="status">{{#each statusOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select><button class="button button-secondary" type="submit">Update status</button></form>{{/if}}
         {{/if}}
-        <div class="module-layout {{#if showForm}}with-form{{/if}}{{#unless showTable}} form-only{{/unless}}">
+        <div class="module-layout {{#if showForm}}{{#unless formModal}}with-form{{/unless}}{{/if}}{{#unless showTable}} form-only{{/unless}}">
           {{#if showTable}}
           <section class="panel table-panel">
             {{#if filters}}<form method="get" class="filter-form">{{#each filters}}<label>{{label}}{{#if (isSelect type)}}<select name="{{name}}">{{#each options}}<option value="{{value}}" {{#if (isActive value ../value)}}selected{{/if}}>{{label}}</option>{{/each}}</select>{{else}}<input type="{{type}}" name="{{name}}" value="{{value}}" placeholder="{{label}}">{{/if}}</label>{{/each}}<button class="button button-secondary" type="submit">Apply filters</button><a class="clear-link" href="/{{section}}">Clear</a></form>{{/if}}
             <div class="table-wrap"><table><thead><tr>{{#each columns}}<th>{{this}}</th>{{/each}}{{#if showActions}}<th>Actions</th>{{/if}}</tr></thead><tbody>
               {{#each rows}}
-                <tr>{{#each cells}}<td>{{this}}</td>{{/each}}
+                <tr>{{#each cells}}<td>{{#if @first}}{{#if ../thumb}}<span class="cell-thumb">{{#if ../image}}<img class="thumb" src="{{../image}}" alt="" loading="lazy">{{else}}<span class="thumb thumb-empty" aria-hidden="true"></span>{{/if}}<span>{{this}}</span></span>{{else}}{{this}}{{/if}}{{else}}{{this}}{{/if}}</td>{{/each}}
                   {{#if @root.showActions}}<td class="actions-cell">
                     {{#if href}}<a class="table-action" href="{{href}}">View</a>{{/if}}
                     {{#if (isAdmin @root.currentUser.Role.name)}}
@@ -37,19 +38,28 @@
             {{#if summary}}<p class="muted table-summary">{{summary}}</p>{{/if}}
           </section>
           {{/if}}
-          {{#if showForm}}<section class="panel form-panel"><div class="panel-heading"><div><h2>{{formTitle}}</h2><p class="muted">Fields marked with * are required.</p></div></div>
-            <form method="post" action="{{formAction}}" class="stack-form"{{#if skuPreviewUrl}} data-sku-preview="{{skuPreviewUrl}}"{{/if}}><input type="hidden" name="_csrf" value="{{csrfToken}}">
+          {{#if showForm}}{{#if formModal}}<div class="modal-backdrop" id="form-modal" data-form-modal hidden><section class="modal modal-form" role="dialog" aria-modal="true" aria-labelledby="form-modal-title"><div class="modal-head"><div><h2 id="form-modal-title">{{formTitle}}</h2><p class="muted">Fields marked with * are required.</p></div><button type="button" class="modal-close" data-close-form-modal aria-label="Close">×</button></div>{{else}}<section class="panel form-panel"><div class="panel-heading"><div><h2>{{formTitle}}</h2><p class="muted">Fields marked with * are required.</p></div></div>{{/if}}
+            <form method="post" action="{{formAction}}"{{#if multipart}} enctype="multipart/form-data"{{/if}} class="stack-form"{{#if skuPreviewUrl}} data-sku-preview="{{skuPreviewUrl}}"{{/if}}{{#if formModal}} data-modal-form{{/if}}><input type="hidden" name="_csrf" value="{{csrfToken}}">
+              {{#if formModal}}<div class="notice notice-error form-error" role="alert" hidden></div>{{/if}}
               {{#each fields}}
                 {{#if (isActive type 'hidden')}}<input type="hidden" name="{{name}}" value="{{value}}">
-                {{else}}<label>{{label}}{{#if required}} <span class="required">*</span>{{/if}}
-                  {{#if (isActive type 'textarea')}}<textarea name="{{name}}" rows="3" {{#if required}}required{{/if}}>{{value}}</textarea>
+                {{else}}{{#if @root.formModal}}{{#if (isActive name 'name')}}<p class="form-section">Product details</p>{{else if (isActive name 'CategoryId')}}<p class="form-section">Category &amp; supplier</p>{{else if (isActive name 'unitPrice')}}<p class="form-section">Pricing &amp; stock</p>{{else if (isActive name 'imagePath')}}<p class="form-section">Product image</p>{{/if}}{{/if}}<label{{#if (isActive type 'textarea')}} class="field-wide"{{else if (isActive type 'image')}} class="field-wide"{{/if}}>{{label}}{{#if required}} <span class="required">*</span>{{/if}}
+                  {{#if (isActive type 'image')}}<span class="image-upload" data-image-upload data-max-bytes="5242880">
+                    <input class="image-input" type="file" name="image" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                    <span class="image-drop" {{#if value}}hidden{{/if}}><i data-lucide="image-up">⇪</i><strong>Click to upload or drag and drop</strong><small>JPG, PNG or WEBP · up to 5 MB</small></span>
+                    <span class="image-preview" {{#unless value}}hidden{{/unless}}><img alt="Product image preview" {{#if value}}src="{{value}}"{{/if}}><span class="image-meta"><span class="image-name">{{#if value}}Current image{{/if}}</span><span class="image-actions"><button type="button" class="image-link" data-image-change>Change</button><button type="button" class="image-link image-link-danger" data-image-remove>Remove</button></span></span></span>
+                    <span class="image-error" role="alert" hidden></span>
+                    <input type="hidden" name="removeImage" value="" data-image-removed>
+                  </span>
+                  {{else if (isActive type 'textarea')}}<textarea name="{{name}}" rows="3" {{#if required}}required{{/if}}>{{value}}</textarea>
                   {{else if (isActive type 'select')}}<select name="{{name}}" {{#if required}}required{{/if}}>{{#each options}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select>
                   {{else}}<input type="{{type}}" name="{{name}}" value="{{value}}" {{#if required}}required{{/if}} {{#if readonly}}readonly aria-readonly="true"{{/if}} {{#if placeholder}}placeholder="{{placeholder}}"{{/if}} {{#if (isActive type 'number')}}min="0" step="any"{{/if}}>{{/if}}
                 </label>{{/if}}
               {{/each}}
-              <button class="button button-primary full-width" type="submit">Save</button>
+              {{#if formModal}}<div class="modal-actions"><button class="button button-secondary" type="button" data-close-form-modal data-reset-form>Cancel</button><button class="button button-primary" type="submit">Save</button></div>
+              {{else}}<button class="button button-primary full-width" type="submit">Save</button>{{/if}}
             </form>
-          </section>{{/if}}
+          {{#if formModal}}</section></div>{{else}}</section>{{/if}}{{/if}}
         </div>
       </section>
     </main>

@@ -12,6 +12,7 @@
       <tr><td><kbd>Alt</kbd> + <kbd>7</kbd></td><td>Purchase orders</td></tr>
       <tr><td><kbd>Alt</kbd> + <kbd>8</kbd></td><td>Low-stock alerts</td></tr>
       <tr><td><kbd>Alt</kbd> + <kbd>9</kbd></td><td>Reports (managers and supervisors)</td></tr>
+      <tr><td><kbd>Alt</kbd> + <kbd>N</kbd></td><td>Add Product (on the Products page, managers only)</td></tr>
       <tr><td><kbd>Ctrl</kbd> + <kbd>K</kbd></td><td>Focus the search box on the page</td></tr>
       <tr><td><kbd>Ctrl</kbd> + <kbd>/</kbd></td><td>Open this guide</td></tr>
       <tr><td><kbd>Ctrl</kbd> + <kbd>Enter</kbd></td><td>Submit the form you are typing in</td></tr>

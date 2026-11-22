@@ -35,7 +35,8 @@
   document.addEventListener("click", event => {
     if (event.target.closest("[data-open-shortcuts]")) { event.preventDefault(); closeDrawer(); openShortcuts(); return; }
     if (event.target.closest("[data-close-modal]")) { closeModal(event.target.closest(".modal-backdrop")); return; }
-    if (event.target.classList && event.target.classList.contains("modal-backdrop")) closeModal(event.target);
+    // The add/edit form modal only closes through its close icon, Cancel or Esc, so a stray click never discards typing.
+    if (event.target.classList && event.target.classList.contains("modal-backdrop") && !event.target.hasAttribute("data-form-modal")) closeModal(event.target);
   });
 
   /* Styled confirmation for every [data-confirm] button (replaces window.confirm). */
@@ -170,6 +171,11 @@
       const link = $$(".sidebar .nav-link").find(el => el.getAttribute("href") === href);
       if (link) { event.preventDefault(); window.location.href = href; }
     }
+    // Alt + N: open the page's "+ Add ..." form (only where that button exists, i.e. managers on Products).
+    if (event.code === "KeyN" && event.altKey && !modifier && !event.shiftKey && !isEditable(event.target) && !openModals().length) {
+      const add = $("[data-open-form-modal]");
+      if (add) { event.preventDefault(); add.click(); }
+    }
   });
 
   /* ---------- Status badges: classify existing table text without touching the data ---------- */
@@ -250,6 +256,112 @@
     setTimeout(() => button.classList.add("is-loading"), 0);
   });
   window.addEventListener("pageshow", () => $$(".is-loading").forEach(el => el.classList.remove("is-loading")));
+
+  /* ---------- Product image upload: preview, validation, drag and drop, change / remove ----------
+     The server re-validates everything (real file type from its bytes, 5 MB limit); this is for fast feedback. */
+  $$("[data-image-upload]").forEach(box => {
+    const input = $(".image-input", box), drop = $(".image-drop", box), preview = $(".image-preview", box);
+    const img = $("img", preview), label = $(".image-name", preview), error = $(".image-error", box);
+    const removed = $("[data-image-removed]", box);
+    const maxBytes = Number(box.dataset.maxBytes) || 5 * 1024 * 1024;
+    const existing = img.getAttribute("src") || "";   // image already saved on this product (edit form)
+    let objectUrl = null;
+    const say = message => { error.textContent = message || ""; error.hidden = !message; };
+    const release = () => { if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; } };
+    const sizeText = bytes => bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(bytes / 1024)) + " KB";
+    const showEmpty = () => { release(); img.removeAttribute("src"); label.textContent = ""; preview.hidden = true; drop.hidden = false; };
+    const showExisting = () => {
+      release();
+      if (!existing) return showEmpty();
+      img.src = existing; label.textContent = "Current image"; drop.hidden = true; preview.hidden = false;
+    };
+    const valid = file => {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type) || !/\.(jpe?g|png|webp)$/i.test(file.name)) { say("Choose a JPG, JPEG, PNG or WEBP image."); return false; }
+      if (file.size > maxBytes) { say("That image is " + sizeText(file.size) + ". The maximum size is 5 MB."); return false; }
+      if (file.size === 0) { say("That file is empty."); return false; }
+      say("");
+      return true;
+    };
+    const choose = file => {
+      release();
+      objectUrl = URL.createObjectURL(file);
+      img.src = objectUrl;
+      label.textContent = file.name + " · " + sizeText(file.size);
+      drop.hidden = true; preview.hidden = false;
+      removed.value = "";
+    };
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      if (valid(file)) choose(file);
+      else { input.value = ""; showExisting(); removed.value = ""; }
+    });
+    $("[data-image-change]", box).addEventListener("click", () => input.click());
+    $("[data-image-remove]", box).addEventListener("click", () => {
+      input.value = "";
+      say("");
+      showEmpty();
+      removed.value = existing ? "1" : "";
+    });
+    // Cancel / close resets the whole form, so the image area must return to its starting state too.
+    const ownerForm = box.closest("form");
+    if (ownerForm) ownerForm.addEventListener("reset", () => setTimeout(() => { say(""); showExisting(); removed.value = ""; }, 0));
+    // The preview sits inside the field's <label>; only the Change button should reopen the file picker.
+    preview.addEventListener("click", event => { if (!event.target.closest("button")) event.preventDefault(); });
+    ["dragenter", "dragover"].forEach(type => box.addEventListener(type, event => { event.preventDefault(); box.classList.add("is-dragging"); }));
+    ["dragleave", "drop"].forEach(type => box.addEventListener(type, event => { event.preventDefault(); box.classList.remove("is-dragging"); }));
+    box.addEventListener("drop", event => {
+      const files = event.dataTransfer && event.dataTransfer.files;
+      const file = files && files[0];
+      if (!file) return;
+      if (!valid(file)) return;
+      try { input.files = files; } catch (e) { say("Your browser could not attach the dropped file. Use click to upload instead."); return; }
+      choose(file);
+    });
+  });
+
+  /* ---------- Add-record modal (Products): open / close, and submit without leaving the page ----------
+     The form still posts to the same route. Asking for JSON makes the server answer a rejected form with a
+     message instead of redirecting, so errors show inside the modal; a successful save (a redirect) reloads
+     the list, which then shows the server's own "Product created." notice. */
+  const formModal = $("[data-form-modal]");
+  if (formModal) {
+    const modalForm = $("form[data-modal-form]", formModal);
+    const formError = $(".form-error", formModal);
+    const showFormError = message => { formError.textContent = message || ""; formError.hidden = !message; };
+    $$("[data-open-form-modal]").forEach(button => button.addEventListener("click", () => {
+      showFormError("");
+      openModal(formModal, 'input[name="name"]');
+      // Refresh the SKU preview for the current category and name.
+      const category = modalForm.elements.CategoryId;
+      if (category) category.dispatchEvent(new Event("change"));
+    }));
+    $$("[data-close-form-modal]", formModal).forEach(button => button.addEventListener("click", () => {
+      closeModal(formModal);
+      if (button.hasAttribute("data-reset-form") || button.classList.contains("modal-close")) { modalForm.reset(); showFormError(""); }
+    }));
+    modalForm.addEventListener("submit", event => {
+      if (!window.fetch || !window.FormData) return;   // fall back to the normal form post
+      event.preventDefault();
+      const submit = $('button[type="submit"]', modalForm);
+      showFormError("");
+      submit.classList.add("is-loading");
+      fetch(modalForm.action, {
+        method: "POST", body: new FormData(modalForm), credentials: "same-origin",
+        headers: { Accept: "application/json" }, redirect: "manual"
+      }).then(async response => {
+        if (response.type === "opaqueredirect") { window.location.reload(); return; }   // saved: the server redirected
+        let message = "The product could not be saved. Please try again.";
+        try { const data = await response.json(); if (data && data.error) message = data.error; } catch (e) { /* keep the default */ }
+        showFormError(message);
+        submit.classList.remove("is-loading");
+        modalForm.scrollTop = 0;
+      }).catch(() => {
+        showFormError("Could not reach the server. Check your connection and try again.");
+        submit.classList.remove("is-loading");
+      });
+    });
+  }
 
   /* ---------- Print header date ---------- */
   $$("[data-print-date]").forEach(el => { el.textContent = new Date().toLocaleString(); });

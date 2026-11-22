@@ -5,6 +5,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import mysql from "mysql2/promise";
+import fs from "node:fs";
+import path from "node:path";
 
 const TEST_DB = process.env.TEST_DB_NAME || "";
 
@@ -436,7 +438,12 @@ if (!TEST_DB) {
       post: (path, fields) => request(path, {
         method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ _csrf: csrf, ...fields })
-      })
+      }),
+      // Multipart form (product image uploads). Pass includeToken: false to prove the CSRF check still applies.
+      postForm: (path, form, { includeToken = true, headers = {} } = {}) => {
+        if (includeToken) form.set("_csrf", csrf);
+        return request(path, { method: "POST", body: form, headers });
+      }
     };
   };
 
@@ -584,6 +591,117 @@ if (!TEST_DB) {
     assert.match(html, new RegExp(`href="/products/${product.id}"`));
     assert.match(html, /nav-link active" href="\/dashboard"/);
     assert.ok((await (await manager.get("/products")).text()).includes('nav-link active" href="/products"'));
+  });
+
+  test("product images: optional upload, real file-type check, 5 MB limit, keep / replace / remove, shown in list and details", async () => {
+    await startServer();
+    const manager = await browser("admin@johnvivz.test", "manager-password-1");
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
+    const publicFile = imagePath => path.join(process.cwd(), "public", imagePath);
+    const base = { unitPrice: "5", minimumStock: "0", initialStock: "0", unit: "pc" };
+    const submit = (action, fields, file, options) => {
+      const form = new FormData();
+      for (const [key, value] of Object.entries(fields)) form.set(key, value);
+      if (file) form.set("image", new Blob([file.data], { type: file.type }), file.name);
+      return manager.postForm(action, form, options);
+    };
+    const made = [];
+    try {
+      // Optional: a product without an image is fine.
+      await submit("/products", { ...base, name: "Plain Item" });
+      assert.equal((await Product.findOne({ where: { name: "Plain Item" } })).imagePath, null);
+
+      // A real PNG is stored under a random name and served with nosniff.
+      const created = await submit("/products", { ...base, name: "Pictured Item" }, { data: png, type: "image/png", name: "tiny.png" });
+      assert.equal(created.status, 302);
+      const product = await Product.findOne({ where: { name: "Pictured Item" } });
+      assert.match(product.imagePath, /^\/uploads\/products\/[a-f0-9]{32}\.png$/);
+      made.push(product.imagePath);
+      assert.ok(fs.existsSync(publicFile(product.imagePath)), "file written");
+      const served = await fetch(`${baseUrl}${product.imagePath}`);
+      assert.equal(served.status, 200);
+      assert.equal(served.headers.get("content-type"), "image/png");
+      assert.equal(served.headers.get("x-content-type-options"), "nosniff");
+
+      // Shown in the list and on the details page; the form is an upload, not a URL box.
+      const list = await (await manager.get("/products")).text();
+      assert.ok(list.includes(`class="thumb" src="${product.imagePath}"`), "thumbnail in list");
+      assert.ok(list.includes('enctype="multipart/form-data"') && list.includes("Click to upload or drag and drop"));
+      assert.ok(!list.includes('name="imagePath"'), "no manual URL field");
+      assert.ok((await (await manager.get(`/products/${product.id}`)).text()).includes(`class="product-hero-image" src="${product.imagePath}"`));
+      assert.ok((await (await manager.get(`/products/${product.id}/edit`)).text()).includes("data-image-upload"));
+
+      // Only the real bytes count: a text file named .png, a wrong type and a >5 MB file are all refused.
+      const before = await Product.count();
+      const filesBefore = fs.readdirSync(path.dirname(publicFile(product.imagePath))).sort();   // may hold real uploads: never assume empty
+      await submit("/products", { ...base, name: "Fake Image" }, { data: Buffer.from("<script>alert(1)</script>"), type: "image/png", name: "evil.png" });
+      await submit("/products", { ...base, name: "Gif Image" }, { data: Buffer.from("GIF89a-not-allowed"), type: "image/gif", name: "a.gif" });
+      const big = Buffer.concat([png, Buffer.alloc(5 * 1024 * 1024)]);
+      await submit("/products", { ...base, name: "Big Image" }, { data: big, type: "image/png", name: "big.png" });
+      assert.equal(await Product.count(), before, "no product is created for a rejected image");
+      assert.deepEqual(fs.readdirSync(path.dirname(publicFile(product.imagePath))).sort(), filesBefore, "rejected files are never written");
+
+      // A legacy "imagePath" URL in a posted form is ignored.
+      await manager.post("/products", { ...base, name: "Url Item", imagePath: "http://example.test/x.png" });
+      assert.equal((await Product.findOne({ where: { name: "Url Item" } })).imagePath, null);
+
+      // The CSRF check still protects multipart posts.
+      const blocked = await submit("/products", { ...base, name: "No Token" }, { data: png, type: "image/png", name: "tiny.png" }, { includeToken: false });
+      assert.equal(blocked.status, 302);
+      assert.equal(await Product.count({ where: { name: "No Token" } }), 0);
+
+      // Edit: no file keeps the image; a new file replaces it (old file deleted); Remove clears it (file deleted).
+      await submit(`/products/${product.id}/update`, { ...base, name: "Pictured Item" });
+      assert.equal((await Product.findByPk(product.id)).imagePath, product.imagePath, "image kept when nothing is chosen");
+      await submit(`/products/${product.id}/update`, { ...base, name: "Pictured Item" }, { data: png, type: "image/png", name: "new.png" });
+      const replaced = (await Product.findByPk(product.id)).imagePath;
+      made.push(replaced);
+      assert.notEqual(replaced, product.imagePath);
+      assert.ok(fs.existsSync(publicFile(replaced)) && !fs.existsSync(publicFile(product.imagePath)), "old file removed");
+      await submit(`/products/${product.id}/update`, { ...base, name: "Pictured Item", removeImage: "1" });
+      assert.equal((await Product.findByPk(product.id)).imagePath, null);
+      assert.ok(!fs.existsSync(publicFile(replaced)), "removed image deleted from disk");
+    } finally {
+      for (const imagePath of made) fs.rmSync(publicFile(imagePath), { force: true });
+    }
+  });
+
+  test("Add Product opens from a button in a modal; the list is full width; errors come back as JSON for the modal", async () => {
+    await startServer();
+    const manager = await browser("admin@johnvivz.test", "manager-password-1");
+    const page = await (await manager.get("/products")).text();
+    assert.match(page, /data-open-form-modal[^>]*>\+ Add Product</, "the + Add Product button");
+    assert.match(page, /id="form-modal" data-form-modal hidden/, "the form lives in a hidden modal");
+    assert.ok(!/class="module-layout with-form/.test(page), "the table is not squeezed beside a permanent form");
+    assert.ok(!page.includes('class="panel form-panel"'), "no permanently visible form panel");
+    for (const needle of ['name="name"', 'name="sku"', 'name="CategoryId"', 'name="SupplierId"', 'name="unitPrice"', 'name="minimumStock"', 'name="unit"', 'name="initialStock"', 'name="image"', "data-close-form-modal", 'class="filter-form"', 'name="search"', 'name="category"', 'name="status"', 'class="clear-link"']) {
+      assert.ok(page.includes(needle), `keeps ${needle}`);
+    }
+    assert.ok(page.indexOf('name="initialStock"') < page.indexOf('name="image"'), "the image field closes the form");
+    const script = fs.readFileSync(new URL("../public/app-shell.js", import.meta.url), "utf8");
+    assert.ok(page.includes('aria-keyshortcuts="Alt+N"') && page.includes("Add Product (Alt + N)"), "the button advertises Alt + N");
+    assert.ok(script.includes('event.code === "KeyN" && event.altKey') && script.includes("[data-open-form-modal]"), "Alt + N is implemented");
+    assert.ok(page.includes("<kbd>Alt</kbd> + <kbd>N</kbd>"), "listed in the shortcuts guide");
+    const categoriesPage = await (await manager.get("/categories")).text();
+    assert.ok(!categoriesPage.includes("Alt+N"), "no Alt + N hint on pages without an Add button");
+
+    // Editing still uses its own page, not the modal.
+    const product = await Product.create({ name: "Modal Check", sku: "MODAL-1", unitPrice: "1.00", currentStock: 0, minimumStock: 1 });
+    const edit = await (await manager.get(`/products/${product.id}/edit`)).text();
+    assert.ok(!edit.includes('id="form-modal"') && edit.includes('name="name"'));
+
+    // The modal asks for JSON: a rejected form is a 400 with the message, a good one still redirects.
+    const form = fields => { const body = new FormData(); for (const [key, value] of Object.entries(fields)) body.set(key, value); return body; };
+    const json = { Accept: "application/json" };
+    const bad = await manager.postForm("/products", form({ name: "", unitPrice: "1", minimumStock: "0", initialStock: "0", unit: "pc" }), { headers: json });
+    assert.equal(bad.status, 400);
+    assert.match((await bad.json()).error, /Provide a name/);
+    const noToken = await manager.postForm("/products", form({ name: "X", unitPrice: "1", minimumStock: "0", initialStock: "0", unit: "pc" }), { headers: json, includeToken: false });
+    assert.equal(noToken.status, 403);
+    const good = await manager.postForm("/products", form({ name: "Modal Saved", unitPrice: "2", minimumStock: "1", initialStock: "0", unit: "pc" }), { headers: json });
+    assert.equal(good.status, 302);
+    assert.equal(good.headers.get("location"), "/products");
+    assert.match((await Product.findOne({ where: { name: "Modal Saved" } })).sku, /^GEN-MOD-\d{4}$/, "automatic SKU still applies");
   });
 
   test("money in every event is a two-decimal string (product and purchase-order events)", async () => {

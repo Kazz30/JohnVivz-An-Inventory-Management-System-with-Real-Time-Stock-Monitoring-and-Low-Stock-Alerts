@@ -36,6 +36,7 @@ import { dirname } from "path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { sequelize, Role } from "./models/index.js";
 import { loadCurrentUser } from "./middleware/auth.js";
+import { productImageUpload } from "./middleware/productImageUpload.js";
 import {
   ensureApplicationIndexes, ensureEssLoginSchema, ensureHrIntegrationSchema, ensureIntegrationSchema, migrateLegacyUsers
 } from "./models/legacyMigration.js";
@@ -61,6 +62,7 @@ if (!sessionSecret) throw new Error("SESSION_SECRET must be set in production.")
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/uploads", (req, res, next) => { res.set("X-Content-Type-Options", "nosniff"); next(); });
 app.use(express.static(path.join(process.cwd(), "public")));
 
 app.use(session({
@@ -105,6 +107,8 @@ app.use((req, res, next) => {
   res.locals.csrfToken = req.session.csrfToken;
   next();
 });
+// Product forms may carry an image file; parse it before the CSRF check reads req.body._csrf.
+app.use(productImageUpload);
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/integration/v1/")) return next();
   if (req.method !== "POST" || ["/login", "/register"].includes(req.path)) return next();
