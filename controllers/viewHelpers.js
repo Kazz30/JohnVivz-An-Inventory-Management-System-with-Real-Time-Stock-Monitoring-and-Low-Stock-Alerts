@@ -7,6 +7,7 @@ export const renderModule = (res, options) => res.render("module", {
   fields: options.fields || [],
   formAction: options.formAction || "",
   formTitle: options.formTitle || "Add record",
+  skuPreviewUrl: options.skuPreviewUrl || "",
   showForm: Boolean(options.showForm),
   showTable: options.showTable !== false,
   showActions: options.showActions !== false,

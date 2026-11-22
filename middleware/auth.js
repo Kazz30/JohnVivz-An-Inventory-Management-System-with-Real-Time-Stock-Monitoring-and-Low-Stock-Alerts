@@ -1,4 +1,24 @@
-import { User, Role, Notification } from "../models/index.js";
+import { User, Role, Notification, Product } from "../models/index.js";
+
+// Header dropdown entry. Stock numbers and severity come from the notification's product as it is now.
+const headerNotification = notification => {
+  const product = notification.Product;
+  const severity = !product ? ["Info", "info"]
+    : product.currentStock <= 0 ? ["Critical", "critical"]
+    : product.currentStock <= product.minimumStock ? ["Low stock", "warning"]
+    : ["Restocked", "ok"];
+  return {
+    message: notification.message,
+    date: notification.createdAt.toLocaleString(),
+    href: product ? `/products/${product.id}` : "/notifications",
+    productName: product?.name || "",
+    hasStock: Boolean(product),
+    currentStock: product?.currentStock,
+    minimumStock: product?.minimumStock,
+    severity: severity[0],
+    severityKey: severity[1]
+  };
+};
 
 export const loadCurrentUser = async (req, res, next) => {
   try {
@@ -10,6 +30,11 @@ export const loadCurrentUser = async (req, res, next) => {
         req.user = user;
         res.locals.currentUser = user;
         res.locals.unreadNotificationCount = await Notification.count({ where: { UserId: user.id, readAt: null } });
+        const unread = await Notification.findAll({
+          where: { UserId: user.id, readAt: null }, include: [{ model: Product, required: false }],
+          order: [["createdAt", "DESC"]], limit: 6
+        });
+        res.locals.headerNotifications = unread.map(headerNotification);
       }
     }
     next();

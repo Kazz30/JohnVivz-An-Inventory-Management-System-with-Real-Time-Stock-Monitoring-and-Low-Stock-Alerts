@@ -1,30 +1,9 @@
 {{> head}}
 <body class="app-body">
   <div class="app-shell">
-    <aside class="sidebar">
-      <a class="brand" href="/dashboard" aria-label="JOHNVIVZ inventory home"><span class="brand-wordmark">JOHNVIVZ<small>Inventory</small></span></a>
-      <nav class="nav-list">
-        <a class="nav-link" href="/dashboard"><i data-lucide="layout-dashboard">◫</i> <span>Dashboard</span></a>
-        <a class="nav-link {{#if (isActive section 'products')}}active{{/if}}" href="/products"><i data-lucide="package">▦</i> <span>Products</span></a>
-        <a class="nav-link {{#if (isActive section 'categories')}}active{{/if}}" href="/categories"><i data-lucide="tags">◈</i> <span>Categories</span></a>
-        <a class="nav-link {{#if (isActive section 'inventory')}}active{{/if}}" href="/inventory"><i data-lucide="boxes">▤</i> <span>Inventory</span></a>
-        <a class="nav-link {{#if (isActive section 'movements')}}active{{/if}}" href="/movements"><i data-lucide="arrow-left-right">↕</i> <span>Stock movements</span></a>
-        <a class="nav-link {{#if (isActive section 'suppliers')}}active{{/if}}" href="/suppliers"><i data-lucide="truck">♧</i> <span>Suppliers</span></a>
-        <a class="nav-link {{#if (isActive section 'purchase-orders')}}active{{/if}}" href="/purchase-orders"><i data-lucide="clipboard-list">▣</i> <span>Purchase orders</span></a>
-        <a class="nav-link {{#if (isActive section 'alerts')}}active{{/if}}" href="/alerts"><i data-lucide="triangle-alert">⚑</i> <span>Low-stock alerts</span></a>
-        <a class="nav-link {{#if (isActive section 'notifications')}}active{{/if}}" href="/notifications"><i data-lucide="bell">♢</i> <span>Notifications <b class="nav-count">{{unreadNotificationCount}}</b></span></a>
-        {{#if (canReviewReports currentUser.Role.name)}}
-        <a class="nav-link {{#if (isActive section 'reports')}}active{{/if}}" href="/reports"><i data-lucide="chart-no-axes-column-increasing">▥</i> <span>Reports</span></a>
-        {{/if}}
-        {{#if (isAdmin currentUser.Role.name)}}
-        <a class="nav-link {{#if (isActive section 'users')}}active{{/if}}" href="/users"><i data-lucide="users">♙</i> <span>User management</span></a>
-        {{/if}}
-        <a class="nav-link {{#if (isActive section 'profile')}}active{{/if}}" href="/profile"><i data-lucide="circle-user-round">◉</i> <span>My profile</span></a>
-      </nav>
-      <form method="post" action="/logout" class="sidebar-logout"><input type="hidden" name="_csrf" value="{{csrfToken}}"><button type="submit"><i data-lucide="log-out">↪</i> Sign out</button></form>
-    </aside>
+    {{> sidebar}}
     <main class="main-panel">
-      <header class="topbar"><div class="topbar-brand"><img class="topbar-logo" src="/johnvivz-logo.png" alt="JOHNVIVZ"><span><span class="muted">Workspace</span><strong> / {{title}}</strong></span></div><div class="user-chip"><span>{{currentUser.name}}</span><small>{{currentUser.Role.name}}</small></div></header>
+      {{> topbar}}
       <section class="page-content">
         {{#each success_msg}}<div class="notice notice-success">{{this}}</div>{{/each}}
         {{#each error_msg}}<div class="notice notice-error">{{this}}</div>{{/each}}
@@ -59,13 +38,13 @@
           </section>
           {{/if}}
           {{#if showForm}}<section class="panel form-panel"><div class="panel-heading"><div><h2>{{formTitle}}</h2><p class="muted">Fields marked with * are required.</p></div></div>
-            <form method="post" action="{{formAction}}" class="stack-form"><input type="hidden" name="_csrf" value="{{csrfToken}}">
+            <form method="post" action="{{formAction}}" class="stack-form"{{#if skuPreviewUrl}} data-sku-preview="{{skuPreviewUrl}}"{{/if}}><input type="hidden" name="_csrf" value="{{csrfToken}}">
               {{#each fields}}
                 {{#if (isActive type 'hidden')}}<input type="hidden" name="{{name}}" value="{{value}}">
                 {{else}}<label>{{label}}{{#if required}} <span class="required">*</span>{{/if}}
                   {{#if (isActive type 'textarea')}}<textarea name="{{name}}" rows="3" {{#if required}}required{{/if}}>{{value}}</textarea>
                   {{else if (isActive type 'select')}}<select name="{{name}}" {{#if required}}required{{/if}}>{{#each options}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select>
-                  {{else}}<input type="{{type}}" name="{{name}}" value="{{value}}" {{#if required}}required{{/if}} {{#if (isActive type 'number')}}min="0" step="any"{{/if}}>{{/if}}
+                  {{else}}<input type="{{type}}" name="{{name}}" value="{{value}}" {{#if required}}required{{/if}} {{#if readonly}}readonly aria-readonly="true"{{/if}} {{#if placeholder}}placeholder="{{placeholder}}"{{/if}} {{#if (isActive type 'number')}}min="0" step="any"{{/if}}>{{/if}}
                 </label>{{/if}}
               {{/each}}
               <button class="button button-primary full-width" type="submit">Save</button>
@@ -76,9 +55,24 @@
     </main>
   </div>
   <script>
-    document.addEventListener("click", event => {
-      const button = event.target.closest("[data-confirm]");
-      if (button && !window.confirm(button.dataset.confirm)) event.preventDefault();
-    });
+    // Product registration: show the server-generated SKU and refresh it when the category or name changes.
+    (() => {
+      const form = document.querySelector("form[data-sku-preview]");
+      if (!form) return;
+      const sku = form.elements.sku, category = form.elements.CategoryId, name = form.elements.name;
+      if (!sku || !category || !name) return;
+      let timer, latest = 0;
+      const refresh = () => {
+        const ticket = ++latest;
+        const query = new URLSearchParams({ categoryId: category.value, name: name.value });
+        fetch(form.dataset.skuPreview + "?" + query, { credentials: "same-origin", headers: { Accept: "application/json" } })
+          .then(response => response.ok ? response.json() : null)
+          .then(data => { if (data && data.sku && ticket === latest) sku.value = data.sku; })
+          .catch(() => {});
+      };
+      category.addEventListener("change", refresh);
+      name.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(refresh, 300); });
+      refresh();
+    })();
   </script>
 {{> footer}}

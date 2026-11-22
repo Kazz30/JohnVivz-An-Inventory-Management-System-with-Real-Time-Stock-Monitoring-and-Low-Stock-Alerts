@@ -1,30 +1,9 @@
 {{> head}}
 <body class="app-body">
   <div class="app-shell">
-    <aside class="sidebar">
-      <a class="brand" href="/dashboard" aria-label="JOHNVIVZ inventory home"><span class="brand-wordmark">JOHNVIVZ<small>Inventory</small></span></a>
-      <nav class="nav-list">
-        <a class="nav-link active" href="/dashboard"><i data-lucide="layout-dashboard">◫</i> <span>Dashboard</span></a>
-        <a class="nav-link" href="/products"><i data-lucide="package">▦</i> <span>Products</span></a>
-        <a class="nav-link" href="/categories"><i data-lucide="tags">◈</i> <span>Categories</span></a>
-        <a class="nav-link" href="/inventory"><i data-lucide="boxes">▤</i> <span>Inventory</span></a>
-        <a class="nav-link" href="/movements"><i data-lucide="arrow-left-right">↕</i> <span>Stock movements</span></a>
-        <a class="nav-link" href="/suppliers"><i data-lucide="truck">♧</i> <span>Suppliers</span></a>
-        <a class="nav-link" href="/purchase-orders"><i data-lucide="clipboard-list">▣</i> <span>Purchase orders</span></a>
-        <a class="nav-link" href="/alerts"><i data-lucide="triangle-alert">⚑</i> <span>Low-stock alerts</span></a>
-        <a class="nav-link" href="/notifications"><i data-lucide="bell">♢</i> <span>Notifications <b class="nav-count">{{unreadNotificationCount}}</b></span></a>
-        {{#if (canReviewReports currentUser.Role.name)}}
-        <a class="nav-link" href="/reports"><i data-lucide="chart-no-axes-column-increasing">▥</i> <span>Reports</span></a>
-        {{/if}}
-        {{#if (isAdmin currentUser.Role.name)}}
-        <a class="nav-link" href="/users"><i data-lucide="users">♙</i> <span>User management</span></a>
-        {{/if}}
-        <a class="nav-link" href="/profile"><i data-lucide="circle-user-round">◉</i> <span>My profile</span></a>
-      </nav>
-      <form method="post" action="/logout" class="sidebar-logout"><input type="hidden" name="_csrf" value="{{csrfToken}}"><button type="submit"><i data-lucide="log-out">↪</i> Sign out</button></form>
-    </aside>
+    {{> sidebar section="dashboard"}}
     <main class="main-panel">
-      <header class="topbar"><div class="topbar-brand"><img class="topbar-logo" src="/johnvivz-logo.png" alt="JOHNVIVZ"><span><span class="muted">Workspace</span><strong> / Dashboard</strong></span></div><div class="user-chip"><span>{{currentUser.name}}</span><small>{{currentUser.Role.name}}</small></div></header>
+      {{> topbar}}
       <section class="page-content">
         {{#each success_msg}}<div class="notice notice-success">{{this}}</div>{{/each}}
         {{#each error_msg}}<div class="notice notice-error">{{this}}</div>{{/each}}
@@ -55,8 +34,8 @@
       const data = JSON.parse(canvas.getAttribute("data-chart") || "{}");
       new Chart(canvas, {
         type: index === 0 ? "doughnut" : "bar",
-        data: { labels: data.labels, datasets: [{ data: data.values, backgroundColor: ["#0756D9", "#00BFFF", "#7654DB", "#16A36A", "#F5A623", "#062B68"], borderWidth: 0, borderRadius: 8 }] },
-        options: { maintainAspectRatio: false, plugins: { legend: { position: index === 0 ? "bottom" : "top" } }, scales: index === 0 ? {} : { y: { beginAtZero: true } } }
+        data: { labels: data.labels, datasets: [{ data: data.values, backgroundColor: ["#0866D9", "#102957", "#4CC2FF", "#16A34A", "#F59E0B", "#7C5CE0"], borderWidth: 0, borderRadius: 8 }] },
+        options: { maintainAspectRatio: false, plugins: { legend: { position: index === 0 ? "bottom" : "top", labels: { usePointStyle: true, boxWidth: 8, color: "#5b6b85" } } }, scales: index === 0 ? {} : { x: { grid: { display: false } }, y: { beginAtZero: true, grid: { color: "#edf1f7" } } } }
       });
     });
   </script>

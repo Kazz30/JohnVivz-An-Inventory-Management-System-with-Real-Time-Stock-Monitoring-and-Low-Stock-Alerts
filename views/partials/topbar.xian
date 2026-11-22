@@ -1,0 +1,30 @@
+<header class="topbar">
+  <div class="topbar-left">
+    <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation menu" aria-controls="app-sidebar" aria-expanded="false"><i data-lucide="menu">☰</i></button>
+    <a class="topbar-logo-link" href="/dashboard"><img class="topbar-logo" src="/johnvivz-logo.png" alt="JOHNVIVZ"></a>
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><ol><li><a href="/dashboard">Home</a></li><li aria-current="page">{{title}}</li></ol></nav>
+  </div>
+  <div class="topbar-actions">
+    <div class="notif-menu">
+      <a class="notif-button {{#if (isActive section 'notifications')}}active{{/if}}" id="notif-button" href="/notifications" aria-label="Notifications ({{unreadNotificationCount}} unread)" aria-haspopup="true" aria-expanded="false" aria-controls="notif-panel" title="Notifications"><i data-lucide="bell">♢</i><b class="nav-count notif-count">{{unreadNotificationCount}}</b></a>
+      <div class="notif-panel" id="notif-panel" role="region" aria-label="Recent notifications" hidden>
+        <div class="notif-panel-head"><strong>Notifications</strong>{{#if unreadNotificationCount}}<form method="post" action="/notifications/read-all"><input type="hidden" name="_csrf" value="{{csrfToken}}"><button type="submit" class="notif-link">Mark all as read</button></form>{{/if}}</div>
+        <div class="notif-list">
+          {{#each headerNotifications}}
+          <a class="notif-item" href="{{href}}">
+            <span class="sev sev-{{severityKey}}">{{severity}}</span>
+            <span class="notif-body">
+              {{#if productName}}<strong>{{productName}}</strong>{{else}}<strong>{{message}}</strong>{{/if}}
+              {{#if hasStock}}<span class="notif-stock">Current stock <b>{{currentStock}}</b> · Minimum <b>{{minimumStock}}</b></span>{{/if}}
+              <time>{{date}}</time>
+            </span>
+          </a>
+          {{else}}<p class="notif-empty">You are all caught up.</p>{{/each}}
+        </div>
+        <a class="notif-footer" href="/notifications">View all notifications</a>
+      </div>
+    </div>
+    <div class="user-chip"><span>{{currentUser.name}}</span><small>{{currentUser.Role.name}}</small></div>
+  </div>
+</header>
+<div class="print-header">JOHNVIVZ Inventory · {{title}} · <span data-print-date></span></div>

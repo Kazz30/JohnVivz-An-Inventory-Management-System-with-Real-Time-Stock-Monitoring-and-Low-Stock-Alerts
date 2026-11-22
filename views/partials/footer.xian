@@ -1,4 +1,33 @@
 <footer class="app-footer">JOHNVIVZ Inventory Management · XianFire / Express / MySQL</footer>
+<div class="modal-backdrop" id="shortcuts-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+    <div class="modal-head"><h2 id="shortcuts-title">Keyboard shortcuts</h2><button type="button" class="modal-close" data-close-modal aria-label="Close">×</button></div>
+    <table class="shortcut-table"><tbody>
+      <tr><td><kbd>Alt</kbd> + <kbd>1</kbd></td><td>Dashboard</td></tr>
+      <tr><td><kbd>Alt</kbd> + <kbd>2</kbd></td><td>Products</td></tr>
+      <tr><td><kbd>Alt</kbd> + <kbd>3</kbd></td><td>Categories</td></tr>
+      <tr><td><kbd>Alt</kbd> + <kbd>4</kbd></td><td>Inventory</td></tr>
+      <tr><td><kbd>Alt</kbd> + <kbd>5</kbd></td><td>Stock movements</td></tr>
+      <tr><td><kbd>Alt</kbd> + <kbd>6</kbd></td><td>Suppliers</td></tr>
+      <tr><td><kbd>Alt</kbd> + <kbd>7</kbd></td><td>Purchase orders</td></tr>
+      <tr><td><kbd>Alt</kbd> + <kbd>8</kbd></td><td>Low-stock alerts</td></tr>
+      <tr><td><kbd>Alt</kbd> + <kbd>9</kbd></td><td>Reports (managers and supervisors)</td></tr>
+      <tr><td><kbd>Ctrl</kbd> + <kbd>K</kbd></td><td>Focus the search box on the page</td></tr>
+      <tr><td><kbd>Ctrl</kbd> + <kbd>/</kbd></td><td>Open this guide</td></tr>
+      <tr><td><kbd>Ctrl</kbd> + <kbd>Enter</kbd></td><td>Submit the form you are typing in</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Close a dialog, menu or the mobile navigation</td></tr>
+    </tbody></table>
+    <p class="muted">Navigation shortcuts are ignored while you type in a field and only reach pages your role can open.</p>
+  </div>
+</div>
+<div class="modal-backdrop" id="confirm-modal" hidden>
+  <div class="modal modal-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <div class="modal-head"><h2 id="confirm-title">Please confirm</h2></div>
+    <p id="confirm-message"></p>
+    <div class="modal-actions"><button type="button" class="button button-secondary" data-confirm-cancel>Cancel</button><button type="button" class="button button-danger" data-confirm-ok>Confirm</button></div>
+  </div>
+</div>
+<script src="/app-shell.js"></script>
 <script>if (window.lucide) window.lucide.createIcons();</script>
 </body>
 </html>

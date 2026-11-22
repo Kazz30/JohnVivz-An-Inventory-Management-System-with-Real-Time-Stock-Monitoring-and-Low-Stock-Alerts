@@ -1,0 +1,31 @@
+<aside class="sidebar" id="app-sidebar">
+  <a class="brand" href="/dashboard" aria-label="JOHNVIVZ inventory home"><span class="brand-short" aria-hidden="true">JV</span><span class="brand-wordmark">JOHNVIVZ<small>Inventory</small></span></a>
+  <nav class="nav-list" aria-label="Main navigation">
+    <p class="nav-section">Overview</p>
+    <a class="nav-link {{#if (isActive section 'dashboard')}}active{{/if}}" href="/dashboard" title="Dashboard"><i data-lucide="layout-dashboard">◫</i> <span>Dashboard</span></a>
+    <p class="nav-section">Catalog</p>
+    <a class="nav-link {{#if (isActive section 'products')}}active{{else if (isActive section 'product-details')}}active{{/if}}" href="/products" title="Products"><i data-lucide="package">▦</i> <span>Products</span></a>
+    <a class="nav-link {{#if (isActive section 'categories')}}active{{/if}}" href="/categories" title="Categories"><i data-lucide="tags">◈</i> <span>Categories</span></a>
+    <p class="nav-section">Stock</p>
+    <a class="nav-link {{#if (isActive section 'inventory')}}active{{/if}}" href="/inventory" title="Inventory"><i data-lucide="boxes">▤</i> <span>Inventory</span></a>
+    <a class="nav-link {{#if (isActive section 'movements')}}active{{/if}}" href="/movements" title="Stock movements"><i data-lucide="arrow-left-right">↕</i> <span>Stock movements</span></a>
+    <p class="nav-section">Procurement</p>
+    <a class="nav-link {{#if (isActive section 'suppliers')}}active{{/if}}" href="/suppliers" title="Suppliers"><i data-lucide="truck">♧</i> <span>Suppliers</span></a>
+    <a class="nav-link {{#if (isActive section 'purchase-orders')}}active{{/if}}" href="/purchase-orders" title="Purchase orders"><i data-lucide="clipboard-list">▣</i> <span>Purchase orders</span></a>
+    <a class="nav-link {{#if (isActive section 'alerts')}}active{{/if}}" href="/alerts" title="Low-stock alerts"><i data-lucide="triangle-alert">⚑</i> <span>Low-stock alerts</span></a>
+    {{#if (canReviewReports currentUser.Role.name)}}
+    <p class="nav-section">Insights &amp; admin</p>
+    <a class="nav-link {{#if (isActive section 'reports')}}active{{/if}}" href="/reports" title="Reports"><i data-lucide="chart-no-axes-column-increasing">▥</i> <span>Reports</span></a>
+    {{/if}}
+    {{#if (isAdmin currentUser.Role.name)}}
+    <a class="nav-link {{#if (isActive section 'users')}}active{{/if}}" href="/users" title="User management"><i data-lucide="users">♙</i> <span>User management</span></a>
+    {{/if}}
+    <p class="nav-section">Account</p>
+    <a class="nav-link {{#if (isActive section 'profile')}}active{{/if}}" href="/profile" title="My profile"><i data-lucide="circle-user-round">◉</i> <span>My profile</span></a>
+  </nav>
+  <div class="sidebar-bottom">
+    <button type="button" class="sidebar-help" data-open-shortcuts title="Keyboard shortcuts (Ctrl + /)"><i data-lucide="keyboard">⌨</i> <span>Keyboard shortcuts</span></button>
+    <form method="post" action="/logout" class="sidebar-logout"><input type="hidden" name="_csrf" value="{{csrfToken}}"><button type="submit" title="Sign out"><i data-lucide="log-out">↪</i> <span>Sign out</span></button></form>
+  </div>
+</aside>
+<div class="nav-overlay" data-nav-overlay></div>

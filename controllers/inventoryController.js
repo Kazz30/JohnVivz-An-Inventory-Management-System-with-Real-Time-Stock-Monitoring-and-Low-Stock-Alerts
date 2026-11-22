@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { Op, UniqueConstraintError } from "sequelize";
 import {
   Category, Inventory, LowStockAlert, Notification, Product, PurchaseOrder, PurchaseOrderItem,
   StockMovement, StockReservation, Supplier, User, Role, sequelize
@@ -7,6 +7,7 @@ import { emitIntegrationEvent, recordMovement } from "../services/inventoryServi
 import { makeFields, renderModule } from "./viewHelpers.js";
 import { canRecordMovement } from "../services/permissions.js";
 import { formatMoney, parseMoney } from "../services/money.js";
+import { generateSku } from "../services/skuService.js";
 
 const stockStatus = product => product.currentStock <= 0
   ? "Out of stock"
@@ -19,7 +20,7 @@ const productFields = async record => {
   ]);
   return makeFields([
     ["name", "Product name", "text", true],
-    ["sku", "SKU / Barcode", "text", true],
+    ["sku", "SKU / Barcode (automatic)", "text", false],
     ["description", "Description", "textarea"],
     ["CategoryId", "Category", "select", false, [{ value: "", label: "Uncategorized" }, ...categories.map(item => ({ value: item.id, label: item.name }))]],
     ["SupplierId", "Supplier", "select", false, [{ value: "", label: "No supplier" }, ...suppliers.map(item => ({ value: item.id, label: item.name }))]],
@@ -27,7 +28,9 @@ const productFields = async record => {
     ["minimumStock", "Minimum stock threshold", "number", true],
     ["unit", "Unit of measurement", "text", true],
     ["imagePath", "Product image URL (optional)", "url"]
-  ], record || {});
+  ], record || {}).map(field => field.name === "sku"
+    ? { ...field, readonly: true, placeholder: "Generated automatically when the product is saved" }
+    : field);
 };
 
 const entityRows = (items, cells) => items.map(item => ({ id: item.id, cells: cells(item) }));
@@ -60,6 +63,7 @@ export const productsPage = async (req, res) => {
     showForm: req.user.Role.name === "manager",
     formTitle: "Add product",
     formAction: "/products",
+    skuPreviewUrl: "/products/sku-preview",
     fields: [
       ...(await productFields()),
       ...makeFields([["initialStock", "Opening stock", "number", true]])
@@ -74,18 +78,35 @@ export const productsPage = async (req, res) => {
 
 export const createProduct = async (req, res) => {
   const name = String(req.body.name || "").trim();
-  const sku = String(req.body.sku || "").trim();
   const initialStock = Number(req.body.initialStock || 0);
   const unitPrice = parseMoney(req.body.unitPrice);
   const minimumStock = Number(req.body.minimumStock);
-  if (!name || !sku || !Number.isInteger(initialStock) || initialStock < 0 ||
+  if (!name || !Number.isInteger(initialStock) || initialStock < 0 ||
       unitPrice === null || !Number.isInteger(minimumStock) || minimumStock < 0) {
-    throw new Error("Provide a name, SKU, non-negative price and threshold, and a valid initial stock quantity.");
+    throw new Error("Provide a name, non-negative price and threshold, and a valid initial stock quantity.");
   }
-  await sequelize.transaction(async transaction => {
+  const categoryId = req.body.CategoryId ? Number(req.body.CategoryId) : null;
+  // The SKU is always generated here; any "sku" in the request body is ignored. Two registrations
+  // can pick the same next number at once, so a unique-index collision rolls back and tries again.
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await createProductWithSku({ req, name, categoryId, unitPrice, minimumStock, initialStock });
+      break;
+    } catch (error) {
+      if (!(error instanceof UniqueConstraintError) || attempt >= 10) throw error;
+      await new Promise(resolve => setTimeout(resolve, Math.random() * 40 * attempt));
+    }
+  }
+  req.flash("success_msg", "Product created.");
+  res.redirect("/products");
+};
+
+const createProductWithSku = ({ req, name, categoryId, unitPrice, minimumStock, initialStock }) =>
+  sequelize.transaction(async transaction => {
+    const sku = await generateSku({ categoryId, productName: name, transaction });
     const product = await Product.create({
       name, sku, description: req.body.description || null,
-      CategoryId: req.body.CategoryId ? Number(req.body.CategoryId) : null,
+      CategoryId: categoryId,
       SupplierId: req.body.SupplierId ? Number(req.body.SupplierId) : null,
       unitPrice, minimumStock, unit: String(req.body.unit || "unit").trim(),
       imagePath: req.body.imagePath || null, currentStock: 0
@@ -108,8 +129,11 @@ export const createProduct = async (req, res) => {
       remarks: "Opening stock", userId: req.user.id, transaction
     });
   });
-  req.flash("success_msg", "Product created.");
-  res.redirect("/products");
+
+// Shows the code the form will most likely receive; the real one is assigned when the product is saved.
+export const productSkuPreview = async (req, res) => {
+  const sku = await generateSku({ categoryId: Number(req.query.categoryId) || null, productName: String(req.query.name || "") });
+  res.json({ sku });
 };
 
 export const editProductPage = async (req, res) => {
@@ -166,13 +190,13 @@ export const updateProduct = async (req, res) => {
   if (!product || !product.isActive) throw new Error("Product not found.");
   const unitPrice = parseMoney(req.body.unitPrice);
   const minimumStock = Number(req.body.minimumStock);
-  if (!String(req.body.name || "").trim() || !String(req.body.sku || "").trim() ||
+  if (!String(req.body.name || "").trim() ||
       unitPrice === null || !Number.isInteger(minimumStock) || minimumStock < 0) {
-    throw new Error("Provide a valid product name, SKU, price, and minimum stock threshold.");
+    throw new Error("Provide a valid product name, price, and minimum stock threshold.");
   }
   const previousPrice = formatMoney(product.unitPrice);
   const updates = {
-    name: String(req.body.name).trim(), sku: String(req.body.sku).trim(),
+    name: String(req.body.name).trim(),
     description: req.body.description || null,
     CategoryId: req.body.CategoryId ? Number(req.body.CategoryId) : null,
     SupplierId: req.body.SupplierId ? Number(req.body.SupplierId) : null,

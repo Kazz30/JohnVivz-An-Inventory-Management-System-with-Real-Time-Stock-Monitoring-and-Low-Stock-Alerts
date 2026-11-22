@@ -41,6 +41,7 @@ router.post("/users/:id/toggle", requireManager, asyncRoute(toggleUser));
 
 router.get("/products", requireAuth, asyncRoute(inventory.productsPage));
 router.post("/products", requireManager, asyncRoute(inventory.createProduct));
+router.get("/products/sku-preview", requireManager, asyncRoute(inventory.productSkuPreview));
 router.get("/products/:id", requireAuth, asyncRoute(inventory.productDetailsPage));
 router.get("/products/:id/edit", requireManager, asyncRoute(inventory.editProductPage));
 router.post("/products/:id/update", requireManager, asyncRoute(inventory.updateProduct));
